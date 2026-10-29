@@ -17,7 +17,8 @@ jobs:
       - uses: actions/setup-python@v5
         with: { python-version: "3.12" }
       - run: pip install pillow
-      - run: python mm.py site
+      # tableaux versionnés dans cache/ : aucun téléchargement Wikimedia à chaque build
+      - run: python mm.py site --all
         env:
           MM_BIRTH: ${{ secrets.MM_BIRTH }}
       - run: cp chrome/newtab.html site/index.html

@@ -4,31 +4,55 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Nouvel onglet</title>
 <style>
-  html, body { margin: 0; height: 100%; background: #0b0b0c; }
-  body { background-size: cover; background-position: center; display: grid; place-items: start center; }
-  form { margin-top: 6vh; width: min(560px, 90vw); }
+  html, body { margin: 0; height: 100%; background: #0b0b0c; overflow: hidden; }
+  .bg { position: fixed; inset: 0; background-size: cover; background-position: center; opacity: 0; transition: opacity 2.5s ease; }
+  .bg.on { opacity: 1; }
+  @media (prefers-reduced-motion: reduce) { .bg { transition: none; } }
+  form { position: relative; margin: 6vh auto 0; width: min(560px, 90vw); }
   input { width: 100%; box-sizing: border-box; padding: 14px 22px; border-radius: 999px; border: 0; outline: 0;
           font: 16px system-ui, sans-serif; color: #eee; background: rgba(0,0,0,.45); backdrop-filter: blur(8px); }
   button { position: fixed; right: 18px; bottom: 18px; width: 34px; height: 34px; border-radius: 50%; border: 0;
            cursor: pointer; background: rgba(255,255,255,.12); color: #ddd; font: 16px system-ui; opacity: .5; }
   button:hover, button:focus-visible { opacity: 1; }
 </style>
+<div class="bg"></div><div class="bg"></div>
 <form action="https://www.google.com/search">
   <input name="q" aria-label="Rechercher sur Google" autofocus autocomplete="off">
 </form>
 <button aria-label="Afficher ou masquer le tableau">◐</button>
 <script>
-  // ?d= change chaque jour : contourne le cache, l'image du jour s'affiche dès minuit
-  const big = innerWidth > innerHeight;
-  let plain = false;
-  try { plain = localStorage.getItem("plain") === "1"; } catch {}
-  const show = () => document.body.style.backgroundImage =
-    `url(https://augustinmarso.github.io/points/${big ? "desktop" : "phone"}${plain ? "-plain" : ""}.jpg?d=${new Date().toLocaleDateString("sv")})`;
+  const base = "https://augustinmarso.github.io/points/";
+  const fmt = innerWidth > innerHeight ? "desktop" : "phone";
+  const day = new Date().toLocaleDateString("sv");  // ?d= change chaque jour : contourne le cache
+  const layers = document.querySelectorAll(".bg");
+  let plain = true, ids = [], k = 0, front = 0, timer;  // fond noir par défaut
+  try { plain = localStorage.getItem("tableau") !== "1"; } catch {}
+
+  function show(file) {
+    const img = new Image();
+    img.onload = () => {  // n'affiche qu'une fois chargée : pas de flash noir
+      front ^= 1;
+      layers[front].style.backgroundImage = `url(${img.src})`;
+      layers[front].classList.add("on");
+      layers[front ^ 1].classList.remove("on");
+    };
+    img.src = `${base}${file}?d=${day}`;
+  }
+  function next() { k = (k + 1) % ids.length; show(`${fmt}-${ids[k]}.jpg`); }
+  function start() {
+    clearInterval(timer);
+    if (plain || !ids.length) return show(`${fmt}.jpg`);
+    show(`${fmt}-${ids[k]}.jpg`);
+    timer = setInterval(next, 20000);
+  }
   document.querySelector("button").onclick = () => {
     plain = !plain;
-    try { localStorage.setItem("plain", plain ? "1" : "0"); } catch {}
-    show();
+    try { localStorage.setItem("tableau", plain ? "0" : "1"); } catch {}
+    start();
   };
-  show();
+  fetch(`${base}carousel.json?d=${day}`).then(r => r.json()).then(c => {
+    ids = c.ids || [];
+    k = Math.floor(Date.now() / 86400000) % (ids.length || 1);  // départ différent chaque jour
+  }).catch(() => {}).finally(start);
 </script>
 </html>

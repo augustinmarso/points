@@ -1,5 +1,5 @@
 out/
-cache/
 site/
 naissance.txt
-sans-tableau
+avec-tableau
+*.part
