@@ -9,14 +9,26 @@
   form { margin-top: 6vh; width: min(560px, 90vw); }
   input { width: 100%; box-sizing: border-box; padding: 14px 22px; border-radius: 999px; border: 0; outline: 0;
           font: 16px system-ui, sans-serif; color: #eee; background: rgba(0,0,0,.45); backdrop-filter: blur(8px); }
+  button { position: fixed; right: 18px; bottom: 18px; width: 34px; height: 34px; border-radius: 50%; border: 0;
+           cursor: pointer; background: rgba(255,255,255,.12); color: #ddd; font: 16px system-ui; opacity: .5; }
+  button:hover, button:focus-visible { opacity: 1; }
 </style>
 <form action="https://www.google.com/search">
   <input name="q" aria-label="Rechercher sur Google" autofocus autocomplete="off">
 </form>
+<button aria-label="Afficher ou masquer le tableau">◐</button>
 <script>
   // ?d= change chaque jour : contourne le cache, l'image du jour s'affiche dès minuit
   const big = innerWidth > innerHeight;
-  document.body.style.backgroundImage =
-    `url(https://augustinmarso.github.io/points/${big ? "desktop" : "phone"}.jpg?d=${new Date().toDateString()})`;
+  let plain = false;
+  try { plain = localStorage.getItem("plain") === "1"; } catch {}
+  const show = () => document.body.style.backgroundImage =
+    `url(https://augustinmarso.github.io/points/${big ? "desktop" : "phone"}${plain ? "-plain" : ""}.jpg?d=${new Date().toDateString()})`;
+  document.querySelector("button").onclick = () => {
+    plain = !plain;
+    try { localStorage.setItem("plain", plain ? "1" : "0"); } catch {}
+    show();
+  };
+  show();
 </script>
 </html>

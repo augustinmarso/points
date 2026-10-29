@@ -1,12 +1,17 @@
 """Fond d'écran : une vanité (tableau du domaine public, une différente chaque jour) voilée
 d'un point par jour d'une vie de MM_YEARS ans. Aucun texte, aucun chiffre.
 Pas de point = jour vécu, point corail = aujourd'hui, point clair = jour restant.
-Usage : MM_BIRTH=AAAA-MM-JJ python mm.py <dossier_sortie> [--set]"""
+Écrit desktop/phone.jpg (avec tableau) et desktop/phone-plain.jpg (sans).
+Usage : python mm.py <dossier_sortie> [--set] [--toggle]
+Date de naissance : variable MM_BIRTH (GitHub) ou fichier naissance.txt (PC, non versionné).
+--set applique le fond Windows ; sans tableau si le fichier sans-tableau existe ; --toggle l'inverse."""
 import ctypes, math, os, sys, urllib.parse, urllib.request
 from datetime import date, datetime
 from PIL import Image, ImageDraw, ImageEnhance, ImageOps
 
-LEFT, TODAY = (235, 230, 220, 90), (242, 148, 111, 255)
+TODAY, BG = (242, 148, 111, 255), (11, 11, 12)
+# (vécu, restant) : sur le tableau, points sombres puis voile clair ; sans tableau, gris puis blanc cassé
+DOTS = {True: ((0, 0, 0, 175), (235, 230, 220, 95)), False: ((78, 78, 82, 255), (200, 198, 192, 255))}
 # nom → (largeur, hauteur, zone des points x0,y0,x1,y1) ; téléphone : haut libre pour l'horloge
 FORMATS = {"desktop": (3840, 2160, (.06, .1, .94, .9)), "phone": (1290, 2796, (.08, .3, .92, .9))}
 PAINTINGS = [  # Wikimedia Commons, domaine public, ≥ 3000 px
@@ -58,7 +63,11 @@ def painting(n, cache):
 
 def render(w, h, box, total, lived, art, ss=2):
     W, H = w * ss, h * ss
-    img = ImageEnhance.Brightness(ImageOps.fit(art, (W, H), Image.LANCZOS)).enhance(.62).convert("RGBA")
+    if art:
+        img = ImageEnhance.Brightness(ImageOps.fit(art, (W, H), Image.LANCZOS)).enhance(.62).convert("RGBA")
+    else:
+        img = Image.new("RGBA", (W, H), BG)
+    lived_c, left_c = DOTS[art is not None]
     veil = Image.new("RGBA", (W, H), (0, 0, 0, 0))
     d = ImageDraw.Draw(veil)
     x0, y0, x1, y1 = box[0] * W, box[1] * H, box[2] * W, box[3] * H
@@ -68,24 +77,31 @@ def render(w, h, box, total, lived, art, ss=2):
     s = min(bw / cols, bh / rows)
     ox, oy = x0 + (bw - cols * s) / 2, y0 + (bh - rows * s) / 2
     r = s * .3
-    for i in range(lived, total):
+    for i in range(total):
         cx, cy = ox + (i % cols + .5) * s, oy + (i // cols + .5) * s
         rr = r * 1.8 if i == lived else r
-        d.ellipse((cx - rr, cy - rr, cx + rr, cy + rr), fill=TODAY if i == lived else LEFT)
+        d.ellipse((cx - rr, cy - rr, cx + rr, cy + rr), fill=lived_c if i < lived else TODAY if i == lived else left_c)
     return Image.alpha_composite(img, veil).convert("RGB").resize((w, h), Image.LANCZOS)
 
 
 def main():
-    out = sys.argv[1]
-    birth = date.fromisoformat(os.environ["MM_BIRTH"])
+    here = os.path.dirname(os.path.abspath(__file__))
+    out = os.path.join(here, sys.argv[1])
+    flag = os.path.join(here, "sans-tableau")
+    if "--toggle" in sys.argv:  # raccourci « Tableau oui-non » du PC
+        os.remove(flag) if os.path.exists(flag) else open(flag, "w").close()
+    raw = os.environ.get("MM_BIRTH") or open(os.path.join(here, "naissance.txt"), encoding="utf-8-sig").read()
+    birth = date.fromisoformat(raw.strip())
     total, lived = counts(birth, int(os.environ.get("MM_YEARS", 80)), today())
     assert counts(date(2000, 1, 1), 1, date(2000, 1, 11)) == (366, 10)
-    art = painting(lived, os.path.join(os.path.dirname(os.path.abspath(__file__)), "cache"))
+    art = painting(lived, os.path.join(here, "cache"))
     os.makedirs(out, exist_ok=True)
     for name, (w, h, box) in FORMATS.items():
         render(w, h, box, total, lived, art).save(os.path.join(out, f"{name}.jpg"), quality=92)
+        render(w, h, box, total, lived, None).save(os.path.join(out, f"{name}-plain.jpg"), quality=92)
     if "--set" in sys.argv:  # SPI_SETDESKWALLPAPER, écrit dans le profil + notifie
-        ctypes.windll.user32.SystemParametersInfoW(20, 0, os.path.abspath(os.path.join(out, "desktop.jpg")), 3)
+        pc = "desktop-plain.jpg" if os.path.exists(flag) else "desktop.jpg"
+        ctypes.windll.user32.SystemParametersInfoW(20, 0, os.path.join(out, pc), 3)
 
 
 if __name__ == "__main__":
