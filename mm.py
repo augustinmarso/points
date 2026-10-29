@@ -130,7 +130,8 @@ def render(w, h, fw, fh, grid, top, life, art, ss=2):
         cx, cy = center(now_wk)
         d.ellipse((cx - r * 1.5, cy - r * 1.5, cx + r * 1.5, cy + r * 1.5), fill=TODAY)
     # seul texte : la part de vie déjà vécue, sans légende
-    font = ImageFont.load_default(size=round(min(W, H) * .026))
+    font = ImageFont.truetype(os.path.join(os.path.dirname(os.path.abspath(__file__)), "fonts", "ScoutieSans-Regular.ttf"),
+                              round(min(W, H) * .016))
     d.text((W / 2, oy + tot_h + gap * 3), f"{pct:.2f}".replace(".", ",") + " %", font=font, fill=(235, 230, 220), anchor="mt")
     return img.resize((w, h), Image.LANCZOS)
 
