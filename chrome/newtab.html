@@ -23,7 +23,7 @@
   let plain = false;
   try { plain = localStorage.getItem("plain") === "1"; } catch {}
   const show = () => document.body.style.backgroundImage =
-    `url(https://augustinmarso.github.io/points/${big ? "desktop" : "phone"}${plain ? "-plain" : ""}.jpg?d=${new Date().toDateString()})`;
+    `url(https://augustinmarso.github.io/points/${big ? "desktop" : "phone"}${plain ? "-plain" : ""}.jpg?d=${new Date().toLocaleDateString("sv")})`;
   document.querySelector("button").onclick = () => {
     plain = !plain;
     try { localStorage.setItem("plain", plain ? "1" : "0"); } catch {}
