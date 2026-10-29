@@ -23,8 +23,10 @@
           font-variant-numeric: tabular-nums; }
   #zone:hover + #info, #info.pin { opacity: 1; }
   #info.pin { pointer-events: auto; left: 50%; top: 50%; transform: translate(-50%, -50%); }
-  #chrono { position: fixed; left: 0; right: 0; bottom: 10px; text-align: center; font-size: 10px; letter-spacing: .04em;
+  /* juste sous le pourcentage de l'image (au-dessus de la barre des tâches) */
+  #chrono { position: fixed; left: 0; right: 0; top: 81.5vh; text-align: center; font-size: 10px; letter-spacing: .04em;
             opacity: .45; font-variant-numeric: tabular-nums; }
+  @media (orientation: portrait) { #chrono { top: auto; bottom: 10px; } }
   input[type=date] { font: inherit; color: inherit; background: transparent; border: 1px solid #555; border-radius: 6px; padding: 2px 6px; }
 </style>
 <div class="bg"></div><div class="bg"></div>
