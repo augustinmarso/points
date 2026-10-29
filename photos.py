@@ -1,7 +1,8 @@
 """Une photo Google Photos par semaine vécue, en noir et blanc et volontairement dégradée.
 Source : export Google Takeout (Google Photos), en .zip ou décompressé. Tout reste en local :
 les vignettes vont dans le fond d'écran Lively, jamais dans le dépôt public.
-Usage : python photos.py <dossier de l'export Takeout>"""
+Usage : python photos.py <dossier de l'export Takeout>
+        python photos.py   (auto : G:\\Mon Drive\\Takeout ou Téléchargements\\Takeout, si un .zip est nouveau)"""
 import io, json, os, re, sys, zipfile
 from datetime import date, datetime, timezone
 from PIL import Image, ImageFilter, ImageOps, ImageStat
@@ -82,8 +83,25 @@ def degrade(img):
     return ImageOps.autocontrast(small.resize(g.size, Image.BILINEAR), cutoff=1)
 
 
+WATCH = [r"G:\Mon Drive\Takeout", os.path.join(os.environ["USERPROFILE"], "Downloads", "Takeout")]
+
+
+def auto():
+    """Sans argument (tâche planifiée) : traite le premier dossier surveillé dont un .zip est plus récent que photos.js."""
+    done = os.path.join(LIVELY, "photos.js")
+    last = os.path.getmtime(done) if os.path.exists(done) and os.path.isdir(os.path.join(LIVELY, "photos")) else 0
+    for folder in WATCH:
+        zips = [os.path.join(folder, f) for f in os.listdir(folder) if f.lower().endswith(".zip")] if os.path.isdir(folder) else []
+        # .zip encore en cours d'écriture ou de synchro : on attend le passage suivant
+        if zips and max(map(os.path.getmtime, zips)) > last and all(zipfile.is_zipfile(z) for z in zips):
+            return folder
+    return None
+
+
 def main():
-    root = sys.argv[1]
+    root = sys.argv[1] if len(sys.argv) > 1 else auto()
+    if not root:
+        return
     birth = date.fromisoformat(open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "naissance.txt"),
                                     encoding="utf-8-sig").read().strip())
     today = date.today()
@@ -123,6 +141,11 @@ def main():
 
     out = os.path.join(LIVELY, "photos")
     os.makedirs(out, exist_ok=True)
+    if not best:  # export illisible ou vide : on garde les photos en place, sans retraiter à chaque passage
+        print("aucune photo datée trouvée", file=sys.stderr)
+        open(os.path.join(LIVELY, "photos.js"), "a").close()
+        os.utime(os.path.join(LIVELY, "photos.js"))
+        return
     for f in os.listdir(out):
         os.remove(os.path.join(out, f))
     for wk, (_, name, read) in best.items():
