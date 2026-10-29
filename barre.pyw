@@ -6,7 +6,7 @@ from ctypes import wintypes
 from datetime import date, datetime
 
 YEARS = int(os.environ.get("MM_YEARS", 80))
-X = 150  # px depuis la gauche de l'écran : après le widget météo, avant le bouton Démarrer
+X = 138  # px depuis la gauche de l'écran : après le widget météo, avant le bouton Démarrer
 KEY = "#010101"  # couleur rendue transparente
 
 ctypes.windll.kernel32.CreateMutexW(None, False, "memento-mori-barre")
@@ -44,7 +44,7 @@ bar_top, bar_h = work.bottom, (screen_h - work.bottom) or 48  # barre masquée :
 root = tk.Tk()
 root.withdraw()  # sans cadre posé avant affichage, Tk sous Windows démarre parfois réduit
 root.configure(bg=KEY)
-label = tk.Label(root, bg=KEY, fg="#ebe6dc", font=("Scoutie Sans", 10), padx=4, text=remaining(datetime.now(), end))
+label = tk.Label(root, bg=KEY, fg="#ebe6dc", font=("Scoutie Sans", 9), padx=2, text=remaining(datetime.now(), end))
 label.pack()
 label.bind("<Button-3>", lambda e: root.destroy())
 root.update_idletasks()
