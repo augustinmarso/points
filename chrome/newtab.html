@@ -4,21 +4,35 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Nouvel onglet</title>
 <style>
-  html, body { margin: 0; height: 100%; background: #0b0b0c; overflow: hidden; }
+  @font-face { font-family: Scoutie; src: url(https://augustinmarso.github.io/points/ScoutieSans-Regular.ttf); }
+  html, body { margin: 0; height: 100%; background: #0b0b0c; overflow: hidden;
+               font-family: Scoutie, system-ui, sans-serif; color: #ebe6dc; }
   .bg { position: fixed; inset: 0; background-size: cover; background-position: center; opacity: 0; transition: opacity 2.5s ease; }
   .bg.on { opacity: 1; }
   @media (prefers-reduced-motion: reduce) { .bg { transition: none; } }
   form { position: relative; margin: 6vh auto 0; width: min(560px, 90vw); }
-  input { width: 100%; box-sizing: border-box; padding: 14px 22px; border-radius: 999px; border: 0; outline: 0;
+  input[name=q] { width: 100%; box-sizing: border-box; padding: 14px 22px; border-radius: 999px; border: 0; outline: 0;
           font: 16px system-ui, sans-serif; color: #eee; background: rgba(0,0,0,.45); backdrop-filter: blur(8px); }
   button { position: fixed; right: 18px; bottom: 18px; width: 34px; height: 34px; border-radius: 50%; border: 0;
            cursor: pointer; background: rgba(255,255,255,.12); color: #ddd; font: 16px system-ui; opacity: .5; }
   button:hover, button:focus-visible { opacity: 1; }
+  /* zone de survol posée sur la grille (60 % × 55 % de l'écran, centrée) */
+  #zone { position: fixed; left: 20vw; top: 22.5vh; width: 60vw; height: 55vh; }
+  #info { position: fixed; pointer-events: none; padding: 10px 14px; border-radius: 10px; font-size: 13px; line-height: 1.6;
+          background: rgba(0,0,0,.7); backdrop-filter: blur(6px); opacity: 0; transition: opacity .2s; white-space: nowrap;
+          font-variant-numeric: tabular-nums; }
+  #zone:hover + #info, #info.pin { opacity: 1; }
+  #info.pin { pointer-events: auto; left: 50%; top: 50%; transform: translate(-50%, -50%); }
+  #chrono { position: fixed; left: 0; right: 0; bottom: 10px; text-align: center; font-size: 10px; letter-spacing: .04em;
+            opacity: .45; font-variant-numeric: tabular-nums; }
+  input[type=date] { font: inherit; color: inherit; background: transparent; border: 1px solid #555; border-radius: 6px; padding: 2px 6px; }
 </style>
 <div class="bg"></div><div class="bg"></div>
 <form action="https://www.google.com/search">
   <input name="q" aria-label="Rechercher sur Google" autofocus autocomplete="off">
 </form>
+<div id="zone"></div><div id="info"></div>
+<div id="chrono" aria-hidden="true"></div>
 <button aria-label="Afficher ou masquer le tableau">◐</button>
 <script>
   const base = "https://augustinmarso.github.io/points/";
@@ -54,5 +68,54 @@
     ids = c.ids || [];
     k = Math.floor(Date.now() / 86400000) % (ids.length || 1);  // départ différent chaque jour
   }).catch(() => {}).finally(start);
+
+  // --- âge, part restante et compte à rebours : la date de naissance reste dans ce navigateur seulement ---
+  const YEARS = 80;
+  const info = document.getElementById("info"), chrono = document.getElementById("chrono");
+  let birth = null;
+  try { const s = localStorage.getItem("naissance"); if (s) birth = new Date(s + "T00:00"); } catch {}
+
+  const addYears = (d, n) => { const r = new Date(d); r.setFullYear(r.getFullYear() + n); return r; };
+  function span(from, to) {  // → [années pleines, jours, ms restantes dans le jour]
+    let y = 0;
+    while (addYears(from, y + 1) <= to) y++;
+    const rest = to - addYears(from, y);
+    return [y, Math.floor(rest / 86400000), rest % 86400000];
+  }
+  const fr = (x, d) => x.toLocaleString("fr-FR", { minimumFractionDigits: d, maximumFractionDigits: d });
+  const pad = (x, n = 2) => String(x).padStart(n, "0");
+
+  function askBirth() {
+    info.classList.add("pin");
+    info.innerHTML = `Date de naissance <input type="date" aria-label="Date de naissance">`;
+    info.querySelector("input").onchange = e => {
+      try { localStorage.setItem("naissance", e.target.value); } catch {}
+      birth = new Date(e.target.value + "T00:00");
+      info.classList.remove("pin");
+    };
+  }
+  document.getElementById("zone").addEventListener("mousemove", e => {
+    if (info.classList.contains("pin")) return;
+    info.style.left = Math.min(e.clientX + 16, innerWidth - info.offsetWidth - 8) + "px";
+    info.style.top = Math.min(e.clientY + 16, innerHeight - info.offsetHeight - 8) + "px";
+  });
+  document.getElementById("zone").addEventListener("dblclick", askBirth);  // double-clic : changer la date
+
+  function tick() {
+    if (birth) {
+      const now = new Date(), end = addYears(birth, YEARS);
+      const [ay, ad] = span(birth, now);
+      const left = Math.max(end - now, 0);
+      const pctLeft = 100 * left / (end - birth);
+      const [ry, rd, rms] = span(now, end);
+      const h = Math.floor(rms / 3600000), m = Math.floor(rms / 60000) % 60, s = Math.floor(rms / 1000) % 60, ms = rms % 1000;
+      if (!info.classList.contains("pin"))
+        info.innerHTML = `${ay} ans et ${ad} jours<br>${fr(100 - pctLeft, 4)} % vécu · ${fr(pctLeft, 6)} % restant`;
+      chrono.textContent = `${ry} a ${pad(rd, 3)} j ${pad(h)}:${pad(m)}:${pad(s)}.${pad(ms, 3)}`;
+    }
+    requestAnimationFrame(tick);
+  }
+  if (!birth) askBirth();
+  tick();
 </script>
 </html>

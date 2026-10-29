@@ -21,7 +21,7 @@ jobs:
       - run: python mm.py site --all
         env:
           MM_BIRTH: ${{ secrets.MM_BIRTH }}
-      - run: cp chrome/newtab.html site/index.html
+      - run: cp chrome/newtab.html site/index.html && cp fonts/ScoutieSans-Regular.ttf site/
       - uses: actions/upload-pages-artifact@v3
         with: { path: site }
       - uses: actions/deploy-pages@v4
