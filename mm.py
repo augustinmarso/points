@@ -63,7 +63,9 @@ def render(w, h, fw, fh, total, lived, art, ss=2):
     W, H = w * ss, h * ss
     # les points ne sont pas posés dessus : ils éclaircissent (restants) ou assombrissent (vécus) le fond lui-même
     if art:
-        src = ImageOps.fit(art, (W, H), Image.LANCZOS)
+        z = 1.2  # zoom : le tableau déborde de l'écran, ce qui coupe aussi les bords sombres du scan
+        src = ImageOps.fit(art, (round(W * z), round(H * z)), Image.LANCZOS)
+        src = src.crop(((src.width - W) // 2, (src.height - H) // 2, (src.width - W) // 2 + W, (src.height - H) // 2 + H))
         base, light, dark = (ImageEnhance.Brightness(src).enhance(k) for k in (.6, 1.1, .3))
     else:
         base, light, dark = (Image.new("RGB", (W, H), c) for c in (BG, (46, 46, 48), (20, 20, 22)))
