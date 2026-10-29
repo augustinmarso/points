@@ -113,9 +113,8 @@
         info.innerHTML = `${ay} ans et ${ad} jours<br>${fr(100 - pctLeft, 4)} % vécu · ${fr(pctLeft, 6)} % restant`;
       chrono.textContent = `${ry} a ${pad(rd, 3)} j ${pad(h)}:${pad(m)}:${pad(s)}.${pad(ms, 3)}`;
     }
-    requestAnimationFrame(tick);
   }
   if (!birth) askBirth();
-  tick();
+  setInterval(tick, 50);
 </script>
 </html>
