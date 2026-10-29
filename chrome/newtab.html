@@ -62,6 +62,7 @@
   const layers = document.querySelectorAll(".bg");
   let plain = true, ids = [], k = 0, front = 0, timer;  // fond noir par défaut
   try { plain = localStorage.getItem("tableau") !== "1"; } catch {}
+  if ("MM_TABLEAU" in window) plain = !window.MM_TABLEAU;  // fond d'écran du PC : réglé par le raccourci « Tableau oui-non »
 
   function show(file) {
     const img = new Image();

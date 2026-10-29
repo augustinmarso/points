@@ -177,17 +177,21 @@ def main():
 
     w, h, fw, fh, grid, top = FORMATS["desktop"]
     plain = not os.path.exists(flag)
-    k = t.toordinal() * 48 + t.hour * 2 + t.minute // 30  # nouveau tableau toutes les 30 min
-    art = None if plain else painting(k, cache)
+    slot = t.toordinal() * 48 + t.hour * 2 + t.minute // 30  # nouveau tableau toutes les 30 min
+    dispo = [i for i in range(n) if os.path.exists(os.path.join(cache, hashlib.md5(PAINTINGS[i].encode()).hexdigest()[:12] + ".jpg"))]
+    art = None if plain or not dispo else painting(dispo[slot % len(dispo)], cache, download=False)
     pc = os.path.join(out, "desktop.jpg")
     render(w, h, fw, fh, grid, top, life, art).save(pc + ".tmp.jpg", quality=92)
     os.replace(pc + ".tmp.jpg", pc)
     if "--set" in sys.argv:  # SPI_SETDESKWALLPAPER, écrit dans le profil + notifie
         ctypes.windll.user32.SystemParametersInfoW(20, 0, pc, 3)
-    sync_lively(here, raw.strip())
+    dst = sync_lively(here, raw.strip(), not plain)
+    if dst and "--toggle" in sys.argv:  # la page lit config.js au chargement : on la recharge
+        import subprocess
+        subprocess.run([r"C:\Program Files\Lively Wallpaper\Lively.exe", "setwp", "--file", dst])
 
 
-def sync_lively(here, birth):
+def sync_lively(here, birth, tableau):
     """Copie locale de la page pour le fond animé Lively : date et photos restent sur ce PC."""
     dst = os.path.join(os.environ.get("LOCALAPPDATA", ""), "Lively Wallpaper", "Library", "wallpapers", "points-mm")
     if not os.path.isdir(dst):
@@ -197,10 +201,11 @@ def sync_lively(here, birth):
     with open(os.path.join(dst, "index.html"), "w", encoding="utf-8") as f:
         f.write(page)
     with open(os.path.join(dst, "config.js"), "w", encoding="utf-8") as f:
-        f.write(f'window.MM_BIRTH = "{birth}";\n')
+        f.write(f'window.MM_BIRTH = "{birth}";\nwindow.MM_TABLEAU = {str(tableau).lower()};\n')
     if not os.path.exists(os.path.join(dst, "photos.js")):
         with open(os.path.join(dst, "photos.js"), "w", encoding="utf-8") as f:
             f.write("window.MM_PHOTOS = [];\n")
+    return dst
 
 
 if __name__ == "__main__":
