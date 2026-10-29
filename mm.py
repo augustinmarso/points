@@ -1,5 +1,5 @@
 """Fond d'écran : une vanité (tableau du domaine public, une différente chaque jour) tramée
-sur toute la page d'un point par jour d'une vie de MM_YEARS ans. Aucun texte, aucun chiffre.
+au centre d'un point par jour d'une vie de MM_YEARS ans. Aucun texte, aucun chiffre.
 Point sombre = jour vécu, point corail = aujourd'hui, point clair = jour restant.
 Écrit desktop/phone.jpg (avec tableau) et desktop/phone-plain.jpg (sans).
 Usage : python mm.py <dossier_sortie> [--set] [--toggle]
@@ -10,7 +10,8 @@ from datetime import date, datetime
 from PIL import Image, ImageDraw, ImageEnhance, ImageOps
 
 TODAY, BG = (242, 148, 111, 255), (11, 11, 12)
-FORMATS = {"desktop": (3840, 2160), "phone": (1290, 2796)}
+# nom → (largeur, hauteur, part de la largeur et de la hauteur occupée par les points, centrés)
+FORMATS = {"desktop": (3840, 2160, .56, .56), "phone": (1290, 2796, .7, .46)}
 PAINTINGS = [  # Wikimedia Commons, domaine public, ≥ 3000 px
     "Pieter Claesz, Still Life with a Skull and a Writing Quill.jpg",
     "Harmen Steenwijck - Vanitas Still-Life - WGA21768.jpg",
@@ -58,7 +59,7 @@ def painting(n, cache):
     return Image.open(path).convert("RGB")
 
 
-def render(w, h, total, lived, art, ss=2):
+def render(w, h, fw, fh, total, lived, art, ss=2):
     W, H = w * ss, h * ss
     # les points ne sont pas posés dessus : ils éclaircissent (restants) ou assombrissent (vécus) le fond lui-même
     if art:
@@ -68,16 +69,18 @@ def render(w, h, total, lived, art, ss=2):
         base, light, dark = (Image.new("RGB", (W, H), c) for c in (BG, (46, 46, 48), (20, 20, 22)))
     m_left, m_lived = Image.new("L", (W, H)), Image.new("L", (W, H))
     d_left, d_lived = ImageDraw.Draw(m_left), ImageDraw.Draw(m_lived)
-    cols = math.ceil(math.sqrt(total * W / H))  # grille sur toute la page
+    bw, bh = W * fw, H * fh
+    cols = math.ceil(math.sqrt(total * bw / bh))
     rows = math.ceil(total / cols)
-    sx, sy = W / cols, H / rows
-    r = min(sx, sy) * .32
+    s = min(bw / cols, bh / rows)
+    ox, oy = (W - cols * s) / 2, (H - rows * s) / 2  # bloc centré
+    r = s * .24
     for i in range(total):
-        cx, cy = (i % cols + .5) * sx, (i // cols + .5) * sy
+        cx, cy = ox + (i % cols + .5) * s, oy + (i // cols + .5) * s
         (d_lived if i < lived else d_left).ellipse((cx - r, cy - r, cx + r, cy + r), fill=255)
     img = Image.composite(light, base, m_left.point(lambda v: v * .55))
     img = Image.composite(dark, img, m_lived.point(lambda v: v * .6))
-    cx, cy, rr = (lived % cols + .5) * sx, (lived // cols + .5) * sy, r * 1.6
+    cx, cy, rr = ox + (lived % cols + .5) * s, oy + (lived // cols + .5) * s, r * 2
     ImageDraw.Draw(img).ellipse((cx - rr, cy - rr, cx + rr, cy + rr), fill=TODAY[:3])
     return img.resize((w, h), Image.LANCZOS)
 
@@ -94,9 +97,9 @@ def main():
     assert counts(date(2000, 1, 1), 1, date(2000, 1, 11)) == (366, 10)
     art = painting(lived, os.path.join(here, "cache"))
     os.makedirs(out, exist_ok=True)
-    for name, (w, h) in FORMATS.items():
-        render(w, h, total, lived, art).save(os.path.join(out, f"{name}.jpg"), quality=92)
-        render(w, h, total, lived, None).save(os.path.join(out, f"{name}-plain.jpg"), quality=92)
+    for name, (w, h, fw, fh) in FORMATS.items():
+        render(w, h, fw, fh, total, lived, art).save(os.path.join(out, f"{name}.jpg"), quality=92)
+        render(w, h, fw, fh, total, lived, None).save(os.path.join(out, f"{name}-plain.jpg"), quality=92)
     if "--set" in sys.argv:  # SPI_SETDESKWALLPAPER, écrit dans le profil + notifie
         pc = "desktop-plain.jpg" if os.path.exists(flag) else "desktop.jpg"
         ctypes.windll.user32.SystemParametersInfoW(20, 0, os.path.join(out, pc), 3)
