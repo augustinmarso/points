@@ -13,9 +13,9 @@
   form { position: relative; margin: 6vh auto 0; width: min(560px, 90vw); }
   input[name=q] { width: 100%; box-sizing: border-box; padding: 14px 22px; border-radius: 999px; border: 0; outline: 0;
           font: 16px system-ui, sans-serif; color: #eee; background: rgba(0,0,0,.45); backdrop-filter: blur(8px); }
-  button { position: fixed; right: 18px; bottom: 18px; width: 34px; height: 34px; border-radius: 50%; border: 0;
-           cursor: pointer; background: rgba(255,255,255,.12); color: #ddd; font: 16px system-ui; opacity: .5; }
-  button:hover, button:focus-visible { opacity: 1; }
+  #tab { position: fixed; right: 18px; bottom: 18px; width: 34px; height: 34px; border-radius: 50%; border: 0;
+         cursor: pointer; background: rgba(255,255,255,.12); color: #ddd; font: 16px system-ui; opacity: .5; }
+  #tab:hover, #tab:focus-visible { opacity: 1; }
   #info { position: fixed; pointer-events: none; padding: 10px 14px; border-radius: 10px; font-size: 13px; line-height: 1.6;
           background: rgba(0,0,0,.7); backdrop-filter: blur(6px); opacity: 0; transition: opacity .2s; white-space: nowrap;
           font-variant-numeric: tabular-nums; }
@@ -29,15 +29,32 @@
   #chrono { position: fixed; left: 0; right: 0; top: 81.5vh; text-align: center; font-size: 10px; letter-spacing: .04em;
             opacity: .45; font-variant-numeric: tabular-nums; }
   @media (orientation: portrait) { #chrono { top: auto; bottom: 10px; } }
+  /* citation du moment : carte qui se retourne au clic (auteur + thème au dos) */
+  #carte { position: fixed; left: 50%; top: 8vh; width: min(600px, 80vw); height: 7.5em; transform: translateX(-50%);
+           perspective: 900px; cursor: pointer; font-size: 15px; background: none; border: 0; padding: 0; color: inherit; font-family: inherit; }
+  form ~ #carte { top: 15vh; }
+  #carte .in { position: relative; width: 100%; height: 100%; transition: transform .7s cubic-bezier(.2,.7,.2,1); transform-style: preserve-3d; }
+  #carte.dos .in { transform: rotateY(180deg); }
+  #carte .face { position: absolute; inset: 0; display: grid; place-items: center; padding: 0 22px; border-radius: 12px;
+                 backface-visibility: hidden; background: rgba(255,255,255,.035); text-align: center; line-height: 1.5; }
+  #carte .recto { font-style: italic; opacity: .82; }
+  #carte .verso { transform: rotateY(180deg); }
+  #carte .verso b { display: block; font-size: 18px; font-weight: 400; letter-spacing: .02em; }
+  #carte .verso span { font-size: 11px; letter-spacing: .14em; text-transform: uppercase; opacity: .55; }
+  #carte[hidden] { display: none; }
+  @media (prefers-reduced-motion: reduce) { #carte .in { transition: none; } }
   input[type=date] { font: inherit; color: inherit; background: transparent; border: 1px solid #555; border-radius: 6px; padding: 2px 6px; }
 </style>
 <div class="bg"></div><div class="bg"></div>
 <form action="https://www.google.com/search">
   <input name="q" aria-label="Rechercher sur Google" autofocus autocomplete="off">
 </form>
+<button id="carte" hidden aria-label="Retourner la citation"><div class="in">
+  <div class="face recto"></div><div class="face verso"><div><b></b><span></span></div></div>
+</div></button>
 <div id="info"><img id="ph" alt="" hidden><div id="txt"></div></div>
 <div id="chrono" aria-hidden="true"></div>
-<button aria-label="Afficher ou masquer le tableau">◐</button>
+<button id="tab" aria-label="Afficher ou masquer le tableau">◐</button>
 <script>
   const base = "https://augustinmarso.github.io/points/";
   const fmt = innerWidth > innerHeight ? "desktop" : "phone";
@@ -63,7 +80,7 @@
     show(`${fmt}-${ids[k]}.jpg`);
     timer = setInterval(next, 20000);
   }
-  document.querySelector("button").onclick = () => {
+  document.getElementById("tab").onclick = () => {
     plain = !plain;
     try { localStorage.setItem("tableau", plain ? "0" : "1"); } catch {}
     start();
@@ -84,7 +101,7 @@
   const hashDate = /^#(\d{4}-\d{2}-\d{2})$/.exec(location.hash);
   try { const s = hashDate ? hashDate[1] : window.MM_BIRTH || localStorage.getItem("naissance"); if (s) birth = new Date(s + "T00:00"); } catch {}
   if (local || new URLSearchParams(location.search).has("fond"))  // mode fond d'écran : ni recherche ni bouton
-    document.querySelectorAll("form, button").forEach(e => e.remove());
+    document.querySelectorAll("form, #tab").forEach(e => e.remove());
 
   const addYears = (d, n) => { const r = new Date(d); r.setFullYear(r.getFullYear() + n); return r; };
   function span(from, to) {  // → [années pleines, jours, ms restantes dans le jour]
@@ -171,6 +188,30 @@
       chrono.textContent = `${ry} a ${pad(rd, 3)} j ${pad(h)}:${pad(m)}:${pad(s)}.${pad(ms, 3)}`;
     }
   }
+  // --- citation : nouvelle 3 fois par jour (0 h, 8 h, 16 h) ; même calcul que citations.py pour l'envoi dans Anki ---
+  const carte = document.getElementById("carte");
+  let citations = {}, creneau = -1;  // { debut: créneau de la 1re citation, liste }
+  const creneauNow = () => {
+    const d = new Date();
+    const jour = Math.floor((d - d.getTimezoneOffset() * 60000) / 86400000);  // jour local depuis 1970
+    return jour * 3 + Math.floor(d.getHours() / 8);
+  };
+  function citation() {
+    const c = creneauNow();
+    if (!citations.liste || c === creneau) return;
+    creneau = c;
+    const q = citations.liste[(((c - citations.debut) % citations.liste.length) + citations.liste.length) % citations.liste.length];
+    carte.classList.remove("dos");
+    carte.querySelector(".recto").textContent = `« ${q.c} »`;
+    carte.querySelector(".verso b").textContent = q.a;
+    carte.querySelector(".verso span").textContent = q.t;
+    carte.title = q.s;
+    carte.hidden = false;
+  }
+  carte.onclick = () => carte.classList.toggle("dos");
+  fetch(`${base}citations.json?d=${day}`).then(r => r.json()).then(l => { citations = l; citation(); }).catch(() => {});
+  setInterval(citation, 60000);
+
   if (!birth) askBirth();
   setInterval(tick, 50);
 </script>
