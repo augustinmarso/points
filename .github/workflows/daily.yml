@@ -26,6 +26,6 @@ jobs:
       - uses: actions/deploy-pages@v4
       # GitHub coupe les crons après 60 jours sans activité : un commit quotidien l'empêche
       - run: |
-          date -u +%F > .alive
+          date -u +%FT%T > .alive
           git config user.name points-bot && git config user.email bot@users.noreply.github.com
           git add .alive && git commit -m alive && git push
