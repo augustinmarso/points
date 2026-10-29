@@ -73,7 +73,11 @@
   const YEARS = 80;
   const info = document.getElementById("info"), chrono = document.getElementById("chrono");
   let birth = null;
-  try { const s = localStorage.getItem("naissance"); if (s) birth = new Date(s + "T00:00"); } catch {}
+  // #AAAA-MM-JJ dans le lien (fond d'écran Lively) : le fragment ne part jamais au serveur
+  const hashDate = /^#(\d{4}-\d{2}-\d{2})$/.exec(location.hash);
+  try { const s = hashDate ? hashDate[1] : localStorage.getItem("naissance"); if (s) birth = new Date(s + "T00:00"); } catch {}
+  if (new URLSearchParams(location.search).has("fond"))  // mode fond d'écran : ni recherche ni bouton
+    document.querySelectorAll("form, button").forEach(e => e.remove());
 
   const addYears = (d, n) => { const r = new Date(d); r.setFullYear(r.getFullYear() + n); return r; };
   function span(from, to) {  // → [années pleines, jours, ms restantes dans le jour]
