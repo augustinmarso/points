@@ -107,7 +107,7 @@ def render(w, h, fw, fh, grid, top, life, art, ss=2):
     m_left, m_lived = Image.new("L", (W, H)), Image.new("L", (W, H))
     d_left, d_lived = ImageDraw.Draw(m_left), ImageDraw.Draw(m_lived)
     gc, gr = grid  # blocs de 10 ans (10 lignes × 52 semaines), en colonnes × lignes
-    g = 2  # espace entre dizaines, en points
+    g = 2  # espace entre dizaines, en points (repris dans layout.json → page web)
     s = min(W * fw / (gc * 52 + (gc - 1) * g), H * fh / (gr * 10 + (gr - 1) * g))
     gap, blk_w, blk_h = g * s, 52 * s, 10 * s
     tot_w, tot_h = gc * blk_w + (gc - 1) * gap, gr * blk_h + (gr - 1) * gap
@@ -170,6 +170,9 @@ def main():
             ids.append(k)
         with open(os.path.join(out, "carousel.json"), "w") as f:
             json.dump({"ids": ids}, f)
+        with open(os.path.join(out, "layout.json"), "w") as f:  # la page retrouve quel point est survolé
+            json.dump({"years": life[0], "gap": 2, **{fmt: dict(zip(("W", "H", "fw", "fh", "grid", "top"), v))
+                                                     for fmt, v in FORMATS.items()}}, f)
         return
 
     w, h, fw, fh, grid, top = FORMATS["desktop"]

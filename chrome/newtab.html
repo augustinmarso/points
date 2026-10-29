@@ -16,12 +16,11 @@
   button { position: fixed; right: 18px; bottom: 18px; width: 34px; height: 34px; border-radius: 50%; border: 0;
            cursor: pointer; background: rgba(255,255,255,.12); color: #ddd; font: 16px system-ui; opacity: .5; }
   button:hover, button:focus-visible { opacity: 1; }
-  /* zone de survol posée sur la grille (60 % × 55 % de l'écran, centrée) */
-  #zone { position: fixed; left: 20vw; top: 22.5vh; width: 60vw; height: 55vh; }
   #info { position: fixed; pointer-events: none; padding: 10px 14px; border-radius: 10px; font-size: 13px; line-height: 1.6;
           background: rgba(0,0,0,.7); backdrop-filter: blur(6px); opacity: 0; transition: opacity .2s; white-space: nowrap;
           font-variant-numeric: tabular-nums; }
-  #zone:hover + #info, #info.pin { opacity: 1; }
+  #info.show, #info.pin { opacity: 1; }
+  #info small { opacity: .6; font-size: 11px; }
   #info.pin { pointer-events: auto; left: 50%; top: 50%; transform: translate(-50%, -50%); }
   /* juste sous le pourcentage de l'image (au-dessus de la barre des tâches) */
   #chrono { position: fixed; left: 0; right: 0; top: 81.5vh; text-align: center; font-size: 10px; letter-spacing: .04em;
@@ -33,7 +32,7 @@
 <form action="https://www.google.com/search">
   <input name="q" aria-label="Rechercher sur Google" autofocus autocomplete="off">
 </form>
-<div id="zone"></div><div id="info"></div>
+<div id="info"></div>
 <div id="chrono" aria-hidden="true"></div>
 <button aria-label="Afficher ou masquer le tableau">◐</button>
 <script>
@@ -100,12 +99,53 @@
       info.classList.remove("pin");
     };
   }
-  document.getElementById("zone").addEventListener("mousemove", e => {
+  // --- quel point est sous la souris : même géométrie que mm.py, lue dans layout.json ---
+  let layout = null, hover = null;  // hover = { wk } sur un point, { wk: null } sur la grille, null ailleurs
+  fetch(`${base}layout.json?d=${day}`).then(r => r.json()).then(l => layout = l).catch(() => {});
+
+  function pointAt(x, y) {
+    const L = layout && layout[fmt];
+    if (!L) return null;
+    const sc = Math.max(innerWidth / L.W, innerHeight / L.H);  // background-size: cover
+    const ix = (x - (innerWidth - L.W * sc) / 2) / sc, iy = (y - (innerHeight - L.H * sc) / 2) / sc;
+    const [gc, gr] = L.grid, g = layout.gap;
+    const s = Math.min(L.W * L.fw / (gc * 52 + (gc - 1) * g), L.H * L.fh / (gr * 10 + (gr - 1) * g));
+    const bw = 52 * s, bh = 10 * s, gap = g * s;
+    const ox = (L.W - (gc * bw + (gc - 1) * gap)) / 2;
+    const oy = L.H * L.top + (L.H * (1 - L.top) - (gr * bh + (gr - 1) * gap)) / 2;
+    const rx = ix - ox, ry = iy - oy;
+    if (rx < 0 || ry < 0 || rx > gc * bw + (gc - 1) * gap || ry > gr * bh + (gr - 1) * gap) return null;
+    const jc = Math.floor(rx / (bw + gap)), jr = Math.floor(ry / (bh + gap));
+    const bx = rx - jc * (bw + gap), by = ry - jr * (bh + gap);
+    const decade = jr * gc + jc;
+    if (bx > bw || by > bh || decade * 10 >= layout.years) return { wk: null };  // entre deux blocs
+    return { wk: (decade * 10 + Math.floor(by / s)) * 52 + Math.min(Math.floor(bx / s), 51) };
+  }
+  const nowWeek = now => {  // comme counts() de mm.py : 52 semaines par an, la 52e absorbe 1 ou 2 jours
+    const [y] = span(birth, now);
+    return y * 52 + Math.min(Math.floor((now - addYears(birth, y)) / 604800000), 51);
+  };
+  const dfr = d => d.toLocaleDateString("fr-FR", { day: "numeric", month: "short", year: "numeric" });
+  const plural = (n, w) => `${n.toLocaleString("fr-FR")} ${w}${n > 1 ? "s" : ""}`;
+
+  function weekText(wk, now) {
+    const y = Math.floor(wk / 52), w = wk % 52, anniv = addYears(birth, y);
+    const start = new Date(+anniv + w * 604800000);
+    const end = w === 51 ? new Date(+addYears(birth, y + 1) - 86400000) : new Date(+start + 6 * 86400000);
+    const d = wk - nowWeek(now);
+    const when = d === 0 ? "cette semaine" : d < 0 ? `vécue · il y a ${plural(-d, "semaine")}` : `dans ${plural(d, "semaine")}`;
+    return `${y} ans · semaine ${w + 1} sur 52<br><small>${dfr(start)} → ${dfr(end)}</small><br>${when}`;
+  }
+
+  document.addEventListener("mousemove", e => {
     if (info.classList.contains("pin")) return;
+    hover = pointAt(e.clientX, e.clientY);
+    info.classList.toggle("show", !!hover);
     info.style.left = Math.min(e.clientX + 16, innerWidth - info.offsetWidth - 8) + "px";
     info.style.top = Math.min(e.clientY + 16, innerHeight - info.offsetHeight - 8) + "px";
   });
-  document.getElementById("zone").addEventListener("dblclick", askBirth);  // double-clic : changer la date
+  document.addEventListener("mouseleave", () => { hover = null; info.classList.remove("show"); });
+  document.addEventListener("dblclick", e => { if (pointAt(e.clientX, e.clientY)) askBirth(); });  // changer la date
 
   function tick() {
     if (birth) {
@@ -115,8 +155,10 @@
       const pctLeft = 100 * left / (end - birth);
       const [ry, rd, rms] = span(now, end);
       const h = Math.floor(rms / 3600000), m = Math.floor(rms / 60000) % 60, s = Math.floor(rms / 1000) % 60, ms = rms % 1000;
-      if (!info.classList.contains("pin"))
-        info.innerHTML = `${ay} ans et ${ad} jours<br>${fr(100 - pctLeft, 4)} % vécu · ${fr(pctLeft, 6)} % restant`;
+      if (!info.classList.contains("pin") && hover) {
+        const general = `${ay} ans et ${ad} jours · ${fr(pctLeft, 6)} % restant`;
+        info.innerHTML = hover.wk == null || hover.wk >= YEARS * 52 ? general : `${weekText(hover.wk, now)}<br><small>${general}</small>`;
+      }
       chrono.textContent = `${ry} a ${pad(rd, 3)} j ${pad(h)}:${pad(m)}:${pad(s)}.${pad(ms, 3)}`;
     }
   }
