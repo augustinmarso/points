@@ -21,6 +21,9 @@
           font-variant-numeric: tabular-nums; }
   #info.show, #info.pin { opacity: 1; }
   #info small { opacity: .6; font-size: 11px; }
+  /* photo de la semaine (copie locale du fond d'écran seulement) : noir et blanc, basse définition */
+  #ph { display: block; width: 220px; margin-bottom: 8px; border-radius: 4px; filter: grayscale(1); image-rendering: auto; }
+  #ph[hidden] { display: none; }
   #info.pin { pointer-events: auto; left: 50%; top: 50%; transform: translate(-50%, -50%); }
   /* juste sous le pourcentage de l'image (au-dessus de la barre des tâches) */
   #chrono { position: fixed; left: 0; right: 0; top: 81.5vh; text-align: center; font-size: 10px; letter-spacing: .04em;
@@ -32,7 +35,7 @@
 <form action="https://www.google.com/search">
   <input name="q" aria-label="Rechercher sur Google" autofocus autocomplete="off">
 </form>
-<div id="info"></div>
+<div id="info"><img id="ph" alt="" hidden><div id="txt"></div></div>
 <div id="chrono" aria-hidden="true"></div>
 <button aria-label="Afficher ou masquer le tableau">◐</button>
 <script>
@@ -73,11 +76,14 @@
   // --- âge, part restante et compte à rebours : la date de naissance reste dans ce navigateur seulement ---
   const YEARS = 80;
   const info = document.getElementById("info"), chrono = document.getElementById("chrono");
+  const txt = document.getElementById("txt"), ph = document.getElementById("ph");
+  const local = "MM_BIRTH" in window;  // copie locale du fond d'écran Lively : config.js et photos.js chargés à côté
+  const photos = new Set(window.MM_PHOTOS || []);
   let birth = null;
-  // #AAAA-MM-JJ dans le lien (fond d'écran Lively) : le fragment ne part jamais au serveur
+  // date : #AAAA-MM-JJ dans le lien (jamais envoyé au serveur), config.js local, ou ce navigateur
   const hashDate = /^#(\d{4}-\d{2}-\d{2})$/.exec(location.hash);
-  try { const s = hashDate ? hashDate[1] : localStorage.getItem("naissance"); if (s) birth = new Date(s + "T00:00"); } catch {}
-  if (new URLSearchParams(location.search).has("fond"))  // mode fond d'écran : ni recherche ni bouton
+  try { const s = hashDate ? hashDate[1] : window.MM_BIRTH || localStorage.getItem("naissance"); if (s) birth = new Date(s + "T00:00"); } catch {}
+  if (local || new URLSearchParams(location.search).has("fond"))  // mode fond d'écran : ni recherche ni bouton
     document.querySelectorAll("form, button").forEach(e => e.remove());
 
   const addYears = (d, n) => { const r = new Date(d); r.setFullYear(r.getFullYear() + n); return r; };
@@ -92,8 +98,9 @@
 
   function askBirth() {
     info.classList.add("pin");
-    info.innerHTML = `Date de naissance <input type="date" aria-label="Date de naissance">`;
-    info.querySelector("input").onchange = e => {
+    ph.hidden = true;
+    txt.innerHTML = `Date de naissance <input type="date" aria-label="Date de naissance">`;
+    txt.querySelector("input").onchange = e => {
       try { localStorage.setItem("naissance", e.target.value); } catch {}
       birth = new Date(e.target.value + "T00:00");
       info.classList.remove("pin");
@@ -157,7 +164,9 @@
       const h = Math.floor(rms / 3600000), m = Math.floor(rms / 60000) % 60, s = Math.floor(rms / 1000) % 60, ms = rms % 1000;
       if (!info.classList.contains("pin") && hover) {
         const general = `${ay} ans et ${ad} jours · ${fr(pctLeft, 6)} % restant`;
-        info.innerHTML = hover.wk == null || hover.wk >= YEARS * 52 ? general : `${weekText(hover.wk, now)}<br><small>${general}</small>`;
+        txt.innerHTML = hover.wk == null || hover.wk >= YEARS * 52 ? general : `${weekText(hover.wk, now)}<br><small>${general}</small>`;
+        const src = local && hover.wk != null && photos.has(hover.wk) ? `photos/${hover.wk}.jpg` : "";
+        if (ph.dataset.src !== src) { ph.dataset.src = src; ph.hidden = !src; if (src) ph.src = src; }  // pas de rechargement à chaque tic
       }
       chrono.textContent = `${ry} a ${pad(rd, 3)} j ${pad(h)}:${pad(m)}:${pad(s)}.${pad(ms, 3)}`;
     }

@@ -184,6 +184,23 @@ def main():
     os.replace(pc + ".tmp.jpg", pc)
     if "--set" in sys.argv:  # SPI_SETDESKWALLPAPER, écrit dans le profil + notifie
         ctypes.windll.user32.SystemParametersInfoW(20, 0, pc, 3)
+    sync_lively(here, raw.strip())
+
+
+def sync_lively(here, birth):
+    """Copie locale de la page pour le fond animé Lively : date et photos restent sur ce PC."""
+    dst = os.path.join(os.environ.get("LOCALAPPDATA", ""), "Lively Wallpaper", "Library", "wallpapers", "points-mm")
+    if not os.path.isdir(dst):
+        return
+    page = open(os.path.join(here, "chrome", "newtab.html"), encoding="utf-8").read()
+    page = page.replace("<script>\n", '<script src="config.js"></script><script src="photos.js"></script>\n<script>\n', 1)
+    with open(os.path.join(dst, "index.html"), "w", encoding="utf-8") as f:
+        f.write(page)
+    with open(os.path.join(dst, "config.js"), "w", encoding="utf-8") as f:
+        f.write(f'window.MM_BIRTH = "{birth}";\n')
+    if not os.path.exists(os.path.join(dst, "photos.js")):
+        with open(os.path.join(dst, "photos.js"), "w", encoding="utf-8") as f:
+            f.write("window.MM_PHOTOS = [];\n")
 
 
 if __name__ == "__main__":
